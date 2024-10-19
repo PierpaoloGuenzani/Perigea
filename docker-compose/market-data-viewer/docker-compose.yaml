@@ -1,0 +1,23 @@
+version: "3"
+services:
+  data-viewer:
+    image: pierpaologuenzani/market-data-viewer
+    ports:
+      - 3000:3000
+    environment:
+      - DOCKER=true
+    networks:
+      - login_network
+      - importer_network
+      - storer_network
+  
+networks:
+  login_network:
+    name: login_default
+    external: true
+  importer_network:
+    name: importer_default
+    external: true
+  storer_network:
+    name: storer_default
+    external: true

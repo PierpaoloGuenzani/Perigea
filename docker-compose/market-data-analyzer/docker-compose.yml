@@ -1,0 +1,16 @@
+version: '3'
+name: market-data-analyzer
+services:
+  market-data-analyzer:
+    image: pierpaologuenzani/market-data-analyzer
+    networks:
+      - network
+    ports:
+      - 8083:8083
+    environment:
+      - MARKETDATASTORER_HOST=market-data-storer
+
+networks:
+  network:
+    name: storer_default
+    external: true

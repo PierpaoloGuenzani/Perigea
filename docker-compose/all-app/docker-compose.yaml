@@ -1,0 +1,157 @@
+version: '3'
+name: all-app
+services:
+#########################################################################################
+#                                         kafka                                         #
+#########################################################################################
+  zookeeper:
+    image: confluentinc/cp-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 2181:2181
+    healthcheck:
+      test: nc -z localhost 2181 || exit -1
+      retries: 5
+      interval: 30s
+      start_period: 1m
+      timeout: 15s
+  
+  kafka:
+    image: confluentinc/cp-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - 29092:29092
+      - 9092:9092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: kafka-topics --bootstrap-server kafka:9092 --list
+      retries: 5
+      interval: 30s
+      timeout: 15s
+    restart: on-failure:5
+#########################################################################################
+#                                      postgreSQL                                       #
+#########################################################################################
+  market-data-importer-db:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=market_data_importer
+    ports:
+      - "5432:5432"
+    #volumes:
+    #  - ../DB/maket-data-importer/postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -q
+      retries: 5
+      interval: 30s
+      timeout: 15s
+#########################################################################################
+  market-data-login-db:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=login_database
+    ports:
+      - "5433:5432"
+    #volumes:
+    #  - ../DB/market-data-login/postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -q
+      retries: 5
+      interval: 30s
+      timeout: 15s
+#########################################################################################
+#                                        mongoDB                                        #
+#########################################################################################
+  mongodb:
+    image: mongodb/mongodb-community-server
+    ports:
+      - 27017:27017
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=user
+      - MONGO_INITDB_ROOT_PASSWORD=pass
+    #volumes:
+    #  - ../DB/mongo_data:/data/db
+    #  - ../DB/mongo_config:/data/configdb
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      retries: 5
+      interval: 30s
+      timeout: 15s
+#########################################################################################
+#                              market-data-importer                                     #
+#########################################################################################
+  market-data-importer:
+    image: pierpaologuenzani/market-data-importer
+    ports:
+      - 8080:8080
+      - 80:80
+    environment:
+      - SPRING_DATASOURCE_url=jdbc:postgresql://market-data-importer-db/market_data_importer
+      - SPRING_KAFKA_BOOTSTRAP-SERVERS=kafka:9092
+      - authentication=${authentication} #the key from polygon
+    depends_on:
+      kafka:
+        condition: service_healthy
+      market-data-importer-db:
+        condition: service_healthy
+#########################################################################################
+#                              market-data-login                                        #
+#########################################################################################
+  market-data-login:
+    image: pierpaologuenzani/market-data-login
+    ports:
+      - 8082:8082
+    environment:
+      - SPRING_DATASOURCE_url=jdbc:postgresql://market-data-login-db/login_database
+    depends_on:
+      market-data-login-db:
+        condition: service_healthy
+#########################################################################################
+#                              market-data-storer                                       #
+#########################################################################################
+  market-data-storer:
+    image: pierpaologuenzani/market-data-storer
+    ports:
+      - 8081:8081
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP-SERVERS=kafka:9092
+      - SPRING_DATA_MONGODB_URI=mongodb://user:pass@mongodb:27017
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+#########################################################################################
+#                              market-data-viewer                                       #
+#########################################################################################  
+  market-data-viewer:
+    image: pierpaologuenzani/market-data-viewer
+    ports:
+      - 3000:3000
+    environment:
+      - DOCKER=true
+#########################################################################################
+#                              market-data-analyzer                                     #
+######################################################################################### 
+  market-data-analyzer:
+    image: pierpaologuenzani/market-data-analyzer
+    networks:
+      - network
+    ports:
+      - 8083:8083
+    environment:
+      - MARKETDATASTORER_HOST=market-data-storer

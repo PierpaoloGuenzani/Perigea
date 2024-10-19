@@ -1,0 +1,19 @@
+version: "3"
+name: market-data-login
+services:
+  market-data-login:
+    image: pierpaologuenzani/market-data-login
+    networks:
+      - network1
+      - network2
+    ports:
+      - 8082:8082
+    environment:
+      - SPRING_DATASOURCE_url=jdbc:postgresql://postgres/login_database
+
+networks:
+  network1:
+    name: postgres_default
+    external: true
+  network2:
+    name: login_default

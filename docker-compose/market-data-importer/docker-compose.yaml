@@ -1,0 +1,26 @@
+version: "3"
+name: market-data-importer
+services:
+  market-data-importer:
+    image: pierpaologuenzani/market-data-importer
+    networks:
+      - network1
+      - network2
+      - network3
+    ports:
+      - 8080:8080
+      - 80:80
+    environment:
+      - SPRING_DATASOURCE_url=jdbc:postgresql://postgres/market_data_importer
+      - SPRING_KAFKA_BOOTSTRAP-SERVERS=kafka:9092
+      - authentication=${authentication} #the key from polygon
+
+networks:
+  network1:
+    name: postgres_default
+    external: true
+  network2:
+    name: kafka_default
+    external: true
+  network3:
+    name: importer_default

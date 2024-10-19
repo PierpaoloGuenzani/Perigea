@@ -1,0 +1,26 @@
+version: "3"
+name: market-data-storer
+services:
+  market-data-storer:
+    image: pierpaologuenzani/market-data-storer
+    networks:
+      - network1
+      - network2
+      - network3
+    ports:
+      - 8081:8081
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP-SERVERS=kafka:9092
+      - SPRING_DATA_MONGODB_URI=mongodb://user:pass@mongodb:27017
+
+networks:
+  network1:
+    name: kafka_default
+    external: true
+  network2:
+    name: mongo_default
+    external: true
+  network3:
+    name: storer_default
+
+    
